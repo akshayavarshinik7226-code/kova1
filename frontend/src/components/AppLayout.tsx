@@ -431,17 +431,20 @@ export function PageHead({
 export function SectionHead({
   title,
   description,
+  subtitle,
   actions,
 }: {
-  title: string;
-  description?: string;
+  title: ReactNode;
+  description?: ReactNode;
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }) {
+  const hint = description ?? subtitle;
   return (
     <div className="row" style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: 12, marginBottom: 12 }}>
       <div>
         <h2 style={{ fontSize: '0.95rem', fontWeight: 600 }}>{title}</h2>
-        {description && <p className="text-xs text-muted" style={{ marginTop: 3 }}>{description}</p>}
+        {hint && <p className="text-xs text-muted" style={{ marginTop: 3 }}>{hint}</p>}
       </div>
       {actions}
     </div>
