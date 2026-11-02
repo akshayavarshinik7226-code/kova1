@@ -23,7 +23,7 @@ export type NotifyInput = string | NotifyOptions;
 
 interface ToastValue {
   toasts: Toast[];
-  notify: (input: NotifyInput, variant?: Toast.Variant) => void;
+  notify: (input: NotifyInput, variant?: ToastVariant) => void;
   dismiss: (id: number) => void;
 }
 
