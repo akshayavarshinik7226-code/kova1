@@ -27,6 +27,12 @@ interface ToastValue {
   dismiss: (id: number) => void;
 }
 
+function normaliseTone(tone: ToastTone): ToastVariant {
+  if (tone === 'danger') return 'error';
+  if (tone === 'warn') return 'info';
+  return tone;
+}
+
 const ToastContext = createContext<ToastValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
