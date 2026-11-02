@@ -279,11 +279,13 @@ def delete_student(
 @router.get("/projects")
 def admin_projects(
     search: Optional[str] = Query(default=None, max_length=120),
-    source_type: Optional[str] = Query(default=None),
+    source: Optional[str] = Query(default=None, pattern="^(github|zip)$"),
+    source_type: Optional[str] = Query(default=None, include_in_schema=False),
     status_filter: Optional[str] = Query(default=None, alias="status"),
     admin: sqlite3.Row = Depends(require_admin),
     conn: sqlite3.Connection = Depends(get_db),
 ):
+    source_filter = source or source_type
     clauses: list[str] = []
     params: list[object] = []
     if search:

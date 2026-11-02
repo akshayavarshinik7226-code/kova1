@@ -57,9 +57,9 @@ def list_projects(
         clauses.append("(p.name LIKE ? OR p.description LIKE ? OR p.repo_url LIKE ?)")
         like = f"%{search.strip()}%"
         params.extend([like, like, like])
-    if source_type in {"github", "zip"}:
+    if source_filter in {"github", "zip"}:
         clauses.append("p.source_type = ?")
-        params.append(source_type)
+        params.append(source_filter)
     if status_filter in {"active", "archived"}:
         clauses.append("p.status = ?")
         params.append(status_filter)
