@@ -6,6 +6,7 @@ repository. Sensible development defaults are used when a value is absent.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import secrets
 from pathlib import Path
