@@ -3,7 +3,7 @@
 # Single container: FastAPI serves both the JSON API and the built React SPA.
 
 # ---------- Stage 1: build the React + TypeScript SPA ----------
-FROM node:24.22.2-bookworm-slim AS frontend-build
+FROM debian:bookworm-slim AS frontend-build
 
 WORKDIR /build
 
@@ -57,7 +57,7 @@ USER kova
 
 WORKDIR /app/backend
 
-EXPOSE 9999
+EXPOSE 3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import os,urllib.request;urllib.request.urlopen('http://127.0.0.1:'+os.getenv('PORT','3000')+'/api/health',timeout=4)"]
