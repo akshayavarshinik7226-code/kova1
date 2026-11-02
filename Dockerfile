@@ -3,7 +3,7 @@
 # Single container: FastAPI serves both the JSON API and the built React SPA.
 
 # ---------- Stage 1: build the React + TypeScript SPA ----------
-FROM debian:bookworm-slim AS frontend-build
+FROM node:24.22.2-bookworm-slim AS frontend-build
 
 WORKDIR /build
 
