@@ -64,8 +64,13 @@ SEED_DEMO_DATA = os.getenv("KOVA_SEED_DEMO_DATA", "1") not in {"0", "false", "Fa
 def get_secret_key() -> str:
     """Return the JWT signing key, persisting a random one for dev installs."""
     env_secret = os.getenv("KOVA_SECRET_KEY")
-    if env_secret and len(env_secret) >= 16:
-        return env_secret
+    if env_secret:
+        # HS256 signs with SHA-256, whose RFC 7518 minimum key length is 32 bytes.
+        # Short operator-provided secrets are hashed to a stable 64-character key
+        # instead of being rejected, so sessions survive a restart.
+        if len(env_secret.encode("utf-8")) >= 32:
+            return env_secret
+        return hashlib.sha256(env_secret.encode("utf-8")).hexdigest()
 
     secret_file = DATA_DIR / "secret.key"
     if secret_file.exists():
