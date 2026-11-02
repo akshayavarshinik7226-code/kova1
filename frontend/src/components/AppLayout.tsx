@@ -411,10 +411,10 @@ export function PageHead({
   actions,
   eyebrow,
 }: {
-  title: string;
+  title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
-  eyebrow?: string;
+  eyebrow?: ReactNode;
 }) {
   return (
     <div className="page-head">
