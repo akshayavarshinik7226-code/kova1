@@ -139,7 +139,10 @@ def new_id(prefix: str) -> str:
 
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
-    conn = sqlite3.connect(str(config.DB_PATH), timeout=15)
+    # FastAPI runs sync dependencies and endpoints on a thread pool, so setup and
+    # teardown can happen on different threads than the handler body. Each request
+    # gets its own connection and never shares it, so cross-thread use is safe here.
+    conn = sqlite3.connect(str(config.DB_PATH), timeout=15, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:

@@ -41,11 +41,13 @@ def _unique_slug(conn: sqlite3.Connection, owner_id: str, base: str) -> str:
 @router.get("", response_model=list[ProjectOut])
 def list_projects(
     search: Optional[str] = Query(default=None, max_length=120),
-    source_type: Optional[str] = Query(default=None),
+    source: Optional[str] = Query(default=None, pattern="^(github|zip)$"),
+    source_type: Optional[str] = Query(default=None, include_in_schema=False),
     status_filter: Optional[str] = Query(default=None, alias="status"),
     user: sqlite3.Row = Depends(get_current_user),
     conn: sqlite3.Connection = Depends(get_db),
 ):
+    source_filter = source or source_type
     clauses: list[str] = []
     params: list[object] = []
     if user["role"] != "admin":
