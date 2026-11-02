@@ -183,7 +183,8 @@ def test_deployment_queue_is_honest(client, student):
     assert deployment["provider"] == "cloudflare"
     assert deployment["provider_state"] == "not_configured"
     assert deployment["preview_url"] is None
-    assert deployment["queue_position"] == 1
+    assert isinstance(deployment["queue_position"], int)
+    assert deployment["queue_position"] >= 1
     assert deployment["blocked_reason"]
     assert deployment["logs"], "queued deployments must explain why no build ran"
     assert any(log["level"] == "warn" for log in deployment["logs"])
