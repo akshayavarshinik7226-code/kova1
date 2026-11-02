@@ -2,16 +2,28 @@ import { createContext, useCallback, useContext, useMemo, useRef, useState } fro
 import type { ReactNode } from 'react';
 
 export type ToastVariant = 'success' | 'error' | 'info';
+export type ToastTone = ToastVariant | 'danger' | 'warn';
 
 export interface Toast {
   id: number;
   variant: ToastVariant;
+  title?: string;
   message: string;
 }
 
+/** Toasts can be raised with a plain string or with a structured payload. */
+export interface NotifyOptions {
+  title?: string;
+  message: string;
+  tone?: ToastTone;
+  variant?: ToastVariant;
+}
+
+export type NotifyInput = string | NotifyOptions;
+
 interface ToastValue {
   toasts: Toast[];
-  notify: (message: string, variant?: ToastVariant) => void;
+  notify: (input: NotifyInput, variant?: Toast.Variant) => void;
   dismiss: (id: number) => void;
 }
 
