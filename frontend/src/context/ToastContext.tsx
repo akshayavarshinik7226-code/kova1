@@ -38,11 +38,19 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const notify = useCallback(
-    (message: string, variant: ToastVariant = 'success') => {
+    (input: NotifyInput, variant: ToastVariant = 'success') => {
+      const payload: Omit<Toast, 'id'> =
+        typeof input === 'string'
+          ? { message: input, variant }
+          : {
+              message: input.message,
+              title: input.title,
+              variant: normaliseTone(input.tone ?? input.variant ?? 'success'),
+            };
       const id = nextId.current;
       nextId.current += 1;
-      setToasts((current) => [...current.slice(-3), { id, variant, message }]);
-      window.setTimeout(() => dismiss(id), variant === 'error' ? 7000 : 4500);
+      setToasts((current) => [...current.slice(-3), { id, ...payload }]);
+      window.setTimeout(() => dismiss(id), payload.variant === 'error' ? 7000 : 4500);
     },
     [dismiss],
   );
