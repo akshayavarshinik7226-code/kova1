@@ -54,6 +54,7 @@ class LoginRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    expires_in: int = 604800
     user: UserPublic
 
 
