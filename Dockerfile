@@ -11,7 +11,10 @@ WORKDIR /build
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 
-COPY frontend/ ./
+# Copy only the SPA sources; local node_modules, dist and tsbuildinfo stay out.
+COPY frontend/index.html frontend/vite.config.ts ./
+COPY frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json ./
+COPY frontend/src ./src
 RUN npm run build
 
 
