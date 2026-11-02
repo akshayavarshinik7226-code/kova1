@@ -109,7 +109,7 @@ export function StudentOverview() {
                         {item.source_label} · {item.environment} · {formatRelative(item.created_at)}
                       </p>
                     </div>
-                    <Icon name="chevronRight" />
+                    <Icon name="chevron-right" />
                   </Link>
                 ))}
               </div>
