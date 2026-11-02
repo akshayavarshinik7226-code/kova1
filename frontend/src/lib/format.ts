@@ -15,7 +15,7 @@ export function avatarColorFor(seed: string): string {
   return AVATAR_COLORS[total % AVATAR_COLORS.length];
 }
 
-export function colorFor(user: Pick<ApiUser, 'avatar_color' | 'email'>): string {
+export function colorFor(user: Pick<ApiUser, 'avatar_color' | 'email' | 'name'>): string {
   return AVATAR_COLORS.includes(user.avatar_color as (typeof AVATAR_COLORS)[number])
     ? user.avatar_color
     : avatarColorFor(user.email || user.name || 'kova');

@@ -112,7 +112,7 @@ function MarketingFooter() {
               follow every deployment from queue to build.
             </p>
             <div className="row gap-2 wrap" style={{ marginTop: 14 }}>
-              <span className="badge badge-warn" dot>Cloudflare: pending integration</span>
+              <span className="badge badge-warn">Cloudflare: pending integration</span>
             </div>
           </div>
           <div className="footer-col">

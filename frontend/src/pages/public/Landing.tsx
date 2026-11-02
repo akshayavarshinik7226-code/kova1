@@ -67,7 +67,7 @@ export function Landing() {
         <div className="page hero-inner">
           <div>
             <div className="row gap-2 wrap">
-              <span className="badge badge-accent" dot>Stage 1 · control plane</span>
+              <span className="badge badge-accent">Stage 1 · control plane</span>
               <span className="badge badge-warn">Cloudflare build provider: pending</span>
             </div>
             <h1 className="hero-title" style={{ marginTop: 20 }}>
