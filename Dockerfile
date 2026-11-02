@@ -59,7 +59,7 @@ WORKDIR /app/backend
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD ["python", "-c", "import os,sys,urllib.request;\nsys.exit(0 if urllib.request.urlopen('http://127.0.0.1:'+os.getenv('PORT','3000')+'/api/health', timeout=4).status == 200 else 1)"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["python", "-c", "import os,urllib.request;urllib.request.urlopen('http://127.0.0.1:'+os.getenv('PORT','3000')+'/api/health',timeout=4)"]
 
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "3000"]
