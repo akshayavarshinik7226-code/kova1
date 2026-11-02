@@ -117,20 +117,22 @@ export function Field({ label, hint, error, required, htmlFor, children, classNa
   );
 }
 
-export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  const { className = '', ...rest } = props;
-  return <input className={`input ${className}`} {...rest} />;
+type InvalidProp = { invalid?: boolean };
+
+export function Input(props: InputHTMLAttributes<HTMLInputElement> & InvalidProp) {
+  const { className = '', invalid = false, ...rest } = props;
+  return <input className={`input ${invalid ? 'is-invalid' : ''} ${className}`} aria-invalid={invalid || undefined} {...rest} />;
 }
 
-export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  const { className = '', ...rest } = props;
-  return <textarea className={`textarea ${className}`} {...rest} />;
+export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement> & InvalidProp) {
+  const { className = '', invalid = false, ...rest } = props;
+  return <textarea className={`textarea ${invalid ? 'is-invalid' : ''} ${className}`} aria-invalid={invalid || undefined} {...rest} />;
 }
 
-export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  const { className = '', children, ...rest } = props;
+export function Select(props: SelectHTMLAttributes<HTMLSelectElement> & InvalidProp) {
+  const { className = '', invalid = false, children, ...rest } = props;
   return (
-    <select className={`select ${className}`} {...rest}>
+    <select className={`select ${invalid ? 'is-invalid' : ''} ${className}`} aria-invalid={invalid || undefined} {...rest}>
       {children}
     </select>
   );

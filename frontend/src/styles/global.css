@@ -1515,3 +1515,18 @@ kbd {
   .docs-toc { position: static; border-left: none; border-top: 1px solid var(--border); padding: 18px 0 0; order: -1; }
   .docs-toc .side-link { padding: 6px 0; }
 }
+
+/* ---------- Auth + contact + forms ---------- */
+.auth-title { font-size: 1.7rem; letter-spacing: -0.03em; margin: 0 0 8px; }
+.auth-sub { color: var(--text-muted); font-size: 14px; line-height: 1.6; margin: 0 0 26px; }
+.auth-alt { margin-top: 20px; }
+.auth-alt a { color: var(--accent); }
+.contact-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.input.is-invalid,
+.textarea.is-invalid,
+.select.is-invalid { border-color: var(--danger); box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent); }
+@media (max-width: 760px) {
+  .contact-grid { grid-template-columns: 1fr; }
+  .form-row { grid-template-columns: 1fr; }
+}
