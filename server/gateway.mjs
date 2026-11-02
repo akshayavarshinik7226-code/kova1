@@ -2,26 +2,26 @@
 /**
  * KOVA container entrypoint.
  *
- * Responsibilities (single process tree, single public port):
+ * Responsibilities (one process tree, one public port):
  *   1. Start the FastAPI backend (uvicorn) on loopback.
  *   2. Serve the pre-built React SPA from KOVA_FRONTEND_DIST, with history
- *      fallback so client-side routes such as /app/overview work on reload.
+ *      fallback so client-side routes such as /app/overview survive a reload.
  *   3. Reverse-proxy /api/* to the FastAPI process.
  *
- * Why this exists: the platform classifies a repository containing a Node
- * project as a Node app and requires the container's start command to be Node.
- * KOVA keeps FastAPI as the API and adds this thin Node edge instead of
- * dropping either stack.
+ * Why this exists: the platform classifies a repository that contains a Node
+ * project as a Node app and requires the container start command to be Node.
+ * KOVA keeps FastAPI as the API and puts this thin Node edge in front of it
+ * instead of dropping either stack.
  *
  * Only Node built-ins are used, so the runtime image needs no extra packages.
  */
 import http from 'node:http';
-import https from 'node:https';
 import { createReadStream, promises as fs } from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 
 const PORT = Number(process.env.PORT || 3000);
+const LISTEN_HOST = process.env.HOST || '0.0.0.0';
 const API_PORT = Number(process.env.KOVA_API_PORT || 8000);
 const API_HOST = '127.0.0.1';
 const DIST = path.resolve(process.env.KOVA_FRONTEND_DIST || '/app/frontend/dist');
@@ -64,10 +64,7 @@ const HOP_BY_HOP = new Set([
 
 let shuttingDown = false;
 
-/**
- * Start the FastAPI process and wait until /api/health answers so the first
- * public request does not race uvicorn's startup.
- */
+/** Start the FastAPI process. Its stdout/stderr go straight to the platform log. */
 function startApi() {
   const args = [
     '-m',
@@ -82,14 +79,10 @@ function startApi() {
     API_HOST,
   ];
 
-  const child = spawn(PYTHON, args, {
-    cwd: BACKEND_DIR,
-    stdio: 'inherit',
-    env: process.env,
-  });
+  const child = spawn(PYTHON, args, { cwd: BACKEND_DIR, stdio: 'inherit', env: process.env });
 
   child.on('error', (error) => {
-    console.error(`[gateway] failed to start ${PYTHON}: ${error.message}`);
+    console.error(`[gateway] failed to spawn ${PYTHON}: ${error.message}`);
     process.exit(1);
   });
 
@@ -109,7 +102,7 @@ function apiHealthy() {
       { host: API_HOST, port: API_PORT, path: '/api/health', timeout: 2000 },
       (response) => {
         response.resume();
-        resolve(response.statusCode !== undefined && response.statusCode < 500);
+        resolve(typeof response.statusCode === 'number' && response.statusCode < 500);
       },
     );
     request.on('timeout', () => request.destroy());
@@ -131,12 +124,12 @@ function proxyToApi(req, res) {
     if (HOP_BY_HOP.has(key)) continue;
     headers[key] = value;
   }
-  const socket = req.socket;
+  const remote = req.socket.remoteAddress || '';
   headers['x-forwarded-for'] = headers['x-forwarded-for']
-    ? `${headers['x-forwarded-for']}, ${socket.remoteAddress || ''}`
-    : socket.remoteAddress || '';
-  headers['x-forwarded-proto'] = req.headers['x-forwarded-proto'] || 'http';
-  headers['x-forwarded-host'] = req.headers.host || '';
+    ? `${headers['x-forwarded-for']}, ${remote}`
+    : remote;
+  headers['x-forwarded-proto'] = headers['x-forwarded-proto'] || 'http';
+  headers['x-forwarded-host'] = headers.host || '';
   headers.host = `${API_HOST}:${API_PORT}`;
 
   const proxyReq = http.request(
@@ -157,25 +150,48 @@ function proxyToApi(req, res) {
     if (!res.headersSent) {
       res.writeHead(502, { 'content-type': 'application/json; charset=utf-8' });
     }
-    res.end(JSON.stringify({ detail: 'The KOVA API is unavailable.' }));
+    res.end(JSON.stringify({ detail: 'The KOVA API is unavailable. Please retry shortly.' }));
   });
 
   req.pipe(proxyReq);
 }
 
-async function statOrNull(target) {
+async function fileInfo(target) {
   try {
     const info = await fs.stat(target);
-    return info;
+    return info.isFile() ? info : null;
   } catch {
     return null;
   }
 }
 
+function sendFile(req, res, filePath, info, cacheControl) {
+  res.writeHead(200, {
+    'content-type': MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
+    'content-length': String(info.size),
+    'cache-control': cacheControl,
+    'x-content-type-options': 'nosniff',
+  });
+  if (req.method === 'HEAD') {
+    res.end();
+    return;
+  }
+  const stream = createReadStream(filePath);
+  stream.on('error', (error) => {
+    console.error(`[gateway] read error for ${filePath}: ${error.message}`);
+    res.destroy();
+  });
+  stream.pipe(res);
+}
+
+function text(res, status, body, headers = {}) {
+  res.writeHead(status, { 'content-type': 'text/plain; charset=utf-8', ...headers });
+  res.end(body);
+}
+
 async function serveStatic(req, res, pathname) {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
-    res.writeHead(405, { allow: 'GET, HEAD', 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Method Not Allowed');
+    text(res, 405, 'Method Not Allowed', { allow: 'GET, HEAD' });
     return;
   }
 
@@ -183,67 +199,57 @@ async function serveStatic(req, res, pathname) {
   try {
     decoded = decodeURIComponent(pathname);
   } catch {
-    res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Bad Request');
+    text(res, 400, 'Bad Request');
     return;
   }
 
   const relative = decoded.replace(/^\/+/, '');
   const candidate = path.resolve(DIST, relative);
 
-  // Reject traversal outside the bundle directory.
+  // Never serve outside the bundle directory.
   if (candidate !== DIST && !candidate.startsWith(DIST + path.sep)) {
-    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Not Found');
+    text(res, 404, 'Not Found');
     return;
   }
 
-  const info = await statOrNull(candidate);
-  if (info && info.isFile()) {
-    sendFile(req, res, candidate, relative.startsWith('assets/'));
+  const direct = await fileInfo(candidate);
+  if (direct) {
+    const immutable = relative.startsWith('assets/');
+    sendFile(
+      req,
+      res,
+      candidate,
+      direct,
+      immutable ? 'public, max-age=31536000, immutable' : 'no-cache, no-store, must-revalidate',
+    );
     return;
   }
 
-  // Missing asset (hashed bundle file) is a real 404, not an SPA route.
+  // A missing hashed asset is a real 404, not a client-side route.
   if (relative.startsWith('assets/') || /\.[a-z0-9]{2,8}$/i.test(relative)) {
-    res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
-    res.end('Not Found');
+    text(res, 404, 'Not Found');
     return;
   }
 
   const indexFile = path.join(DIST, 'index.html');
-  if (!(await statOrNull(indexFile))) {
+  const indexInfo = await fileInfo(indexFile);
+  if (!indexInfo) {
     res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' });
     res.end(
       JSON.stringify({
-        detail: 'KOVA frontend bundle not found.',
+        detail: 'The KOVA frontend bundle was not found.',
         hint: `Expected index.html in ${DIST}. Run "npm run build" in frontend/.`,
       }),
     );
     return;
   }
 
-  sendFile(req, res, indexFile, false, { 'cache-control': 'no-cache, no-store, must-revalidate' });
-}
-
-function sendFile(req, res, filePath, immutable, extraHeaders = {}) {
-  const headers = {
-    'content-type': MIME[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
-    'content-length': String(require_file_size_placeholder),
-  };
-  // stat is needed for content-length; do it synchronously via a fresh stat
-  // result passed by the caller through a promise instead.
-  void headers;
-  void immutable;
-  void extraHeaders;
-  void filePath;
-  void req;
-  void res;
+  sendFile(req, res, indexFile, indexInfo, 'no-cache, no-store, must-revalidate');
 }
 
 async function handleRequest(req, res) {
-  const url = req.url || '/';
-  const pathname = url.split('?')[0] || '/';
+  const rawUrl = req.url || '/';
+  const pathname = rawUrl.split('?')[0] || '/';
 
   if (pathname === '/api' || pathname.startsWith('/api/')) {
     proxyToApi(req, res);
@@ -254,19 +260,19 @@ async function handleRequest(req, res) {
     await serveStatic(req, res, pathname);
   } catch (error) {
     console.error(`[gateway] static error for ${pathname}: ${error.message}`);
-    if (!res.headersSent) {
-      res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
-    }
-    res.end('Internal Server Error');
+    if (!res.headersSent) text(res, 500, 'Internal Server Error');
+    else res.destroy();
   }
 }
 
 async function main() {
-  console.log(`[gateway] serving ${DIST} on 0.0.0.0:${PORT}; proxying /api to ${API_HOST}:${API_PORT}`);
+  console.log(
+    `[gateway] dist=${DIST} listen=${LISTEN_HOST}:${PORT} api=${API_HOST}:${API_PORT} python=${PYTHON}`,
+  );
 
   const api = startApi();
   const ready = await waitForApi(Date.now() + API_READY_TIMEOUT_MS);
-  console.log(`[gateway] FastAPI health: ${ready ? 'ready' : 'not ready yet (proxy will retry)'}`);
+  console.log(`[gateway] FastAPI health: ${ready ? 'ready' : 'not ready (proxy will retry)'}`);
 
   const server = http.createServer((req, res) => {
     handleRequest(req, res);
@@ -277,8 +283,8 @@ async function main() {
     void error;
   });
 
-  server.listen(PORT, '0.0.0.0', () => {
-    console.log(`[gateway] listening on http://0.0.0.0:${PORT}`);
+  server.listen(PORT, LISTEN_HOST, () => {
+    console.log(`[gateway] listening on http://${LISTEN_HOST}:${PORT}`);
   });
 
   const shutdown = (signal) => {
@@ -293,9 +299,6 @@ async function main() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
-
-void https;
-void createReadStream;
 
 main().catch((error) => {
   console.error(`[gateway] fatal: ${error.stack || error.message}`);
